@@ -30,7 +30,10 @@ job end-to-end (not when stubbed).
       (in-process service: challenge nonces burned-on-use, quote + binding checks
       before any evaluation, DLEQ verified end-to-end by the voprf client crate;
       transport/RA-TLS and real key sealing arrive with enrollment-tee/deployment)
-- [ ] contracts — Registry (novelty/dedup), GateZVerifier, NullifierRegistry
+- [x] contracts — Registry (novelty/dedup), GateZVerifier, NullifierRegistry
+      (Φ-novelty + dedup Sybil block + IGateZVerifier seam for a future DCAP-in-ZK
+      verifier; sim Gate Z proof = keccak256("pramaana-sim-attestation", Φ); 12 forge
+      tests, forge-std-free so the build stays submodule-free)
 - [ ] circuits — Gate Z (stub now)
 - [ ] sdk — enroll() / prove(serviceId) / verifyOnChain()
 - [ ] app — Sybil-resistant airdrop demo

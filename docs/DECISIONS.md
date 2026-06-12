@@ -163,3 +163,33 @@ recovery-by-rescan requires the stable-id bytes to be reproducible forever.
 **Consequences.** The full §2 sequence runs end-to-end on a laptop; re-scan
 and re-issue reproduce the same Φ and dedup blocks a second mint; sk_IdR
 exists only inside enroll() and is zeroized on drop, never persisted.
+
+## 2026-06-13 — contracts: Gate Z verifier seam, forge-std-free tests, sim divergence
+
+**Context.** Registry must reject duplicate Φ AND dedup-tag reuse and gate
+registration on Gate Z; the real Gate Z verifier (DCAP-in-ZK) does not exist
+yet; tests must not reintroduce a git submodule into the build.
+
+**Decision.**
+1. `IGateZVerifier` interface is the replaceable seam: `Registry` depends only
+   on it, so the SIM `GateZVerifier` can be swapped for a `DcapGateZVerifier`
+   at deployment without touching the Registry. Dropped the old `simMode` flag
+   (separate implementations replace a runtime toggle).
+2. `Registry.register` checks Φ-novelty (`DuplicatePhi`) then dedup
+   (`AlreadyEnrolled`) then the Gate Z proof (`InvalidGateZProof`),
+   cheapest-first; `identityCount` tracks registrations.
+3. Forge tests use NO forge-std: a minimal inline `Vm` cheatcode interface
+   (`expectRevert(bytes)`) + `require` assertions, keeping `forge build` /
+   `make build` submodule-free (matches the bootstrap decision). Note:
+   `expectRevert(bytes4)` matches a 4-byte revert exactly, so errors with
+   args are matched via `expectRevert(abi.encodeWithSelector(...))`, and any
+   proof must be precomputed before `expectRevert` so no staticcall
+   intervenes.
+4. On-chain sim Gate Z proof = `keccak256("pramaana-sim-attestation", Φ)`,
+   self-contained in the EVM. This DIFFERS from the Rust enrollment-tee sim
+   Gate Z proof (an attestation-crate quote bound to ("pramaana-gate-z-v1",
+   Φ)). Both are sim stand-ins at different layers; reconciling them, or
+   wiring the real verifier, is the sdk/circuits work.
+
+**Consequences.** Registry logic is final and tested; production swaps in a
+real `IGateZVerifier` only; the EVM build needs no `git submodule update`.

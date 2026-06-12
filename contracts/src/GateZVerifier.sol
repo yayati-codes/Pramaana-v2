@@ -1,29 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-/// @title GateZVerifier — ARCHITECTURE.md §2 step 12, §6
-/// @notice Verifies the Gate Z ZK proof that a Φ commitment was produced by
-///         reviewed code on approved hardware. Per §6 it has a SIM mode that
-///         checks the deterministic mock attestation instead of a real proof.
-contract GateZVerifier {
-    bool public immutable simMode;
+import {IGateZVerifier} from "./IGateZVerifier.sol";
 
-    constructor(bool _simMode) {
-        simMode = _simMode;
+/// @title GateZVerifier (SIM) — ARCHITECTURE.md §2 step 12, §6
+/// @notice SIM-mode Gate Z verifier: accepts a deterministic mock attestation
+///         instead of a real proof, so the registry flow runs end-to-end on
+///         any chain. Production deploys a different `IGateZVerifier`
+///         implementation (a DCAP-in-ZK / Groth16 verifier) in its place.
+///
+/// @dev The on-chain sim proof is `keccak256("pramaana-sim-attestation", phi)`.
+///      This is a separate, self-contained EVM mock; the Rust enrollment-tee
+///      uses a different sim Gate Z format (an attestation-crate quote). Both
+///      are sim stand-ins for their layer — see docs/DECISIONS.md.
+contract GateZVerifier is IGateZVerifier {
+    /// @notice The sim proof bytes a caller must present for `phi`.
+    function expectedProof(bytes32 phi) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked("pramaana-sim-attestation", phi));
     }
 
-    /// @notice Stub. SIM mode: accept the mock attestation tag emitted by the
-    ///         attestation crate's simulator. Real mode: not implemented until
-    ///         circuits/gatez.circom is more than a placeholder.
-    /// TODO: real Groth16 verification of the Gate Z circuit.
-    function verify(bytes32 phi, bytes calldata proof) external view returns (bool) {
-        if (simMode) {
-            // Mock attestation: proof must be the sim tag for this phi.
-            if (proof.length != 32) return false;
-            // casting to 'bytes32' is safe: length is exactly 32 (checked above)
-            // forge-lint: disable-next-line(unsafe-typecast)
-            return bytes32(proof) == keccak256(abi.encodePacked("pramaana-sim-attestation", phi));
-        }
-        return false;
+    /// @inheritdoc IGateZVerifier
+    function verify(bytes32 phi, bytes calldata proof) external pure returns (bool) {
+        if (proof.length != 32) return false;
+        // casting to 'bytes32' is safe: length is exactly 32 (checked above)
+        // forge-lint: disable-next-line(unsafe-typecast)
+        return bytes32(proof) == expectedProof(phi);
     }
 }
