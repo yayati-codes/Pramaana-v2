@@ -5,3 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+attestation = { path = "../attestation" }
+rand_core = { version = "0.6", features = ["getrandom"] }
+thiserror = "2"
+voprf = { path = "../voprf", features = ["server"] }

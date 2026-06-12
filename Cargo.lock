@@ -4641,6 +4641,12 @@ dependencies = [
 [[package]]
 name = "voprf-vault"
 version = "0.1.0"
+dependencies = [
+ "attestation",
+ "rand_core 0.6.4",
+ "thiserror 2.0.18",
+ "voprf 0.1.0",
+]
 
 [[package]]
 name = "wait-timeout"

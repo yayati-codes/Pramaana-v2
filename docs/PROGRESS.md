@@ -22,7 +22,10 @@ job end-to-end (not when stubbed).
       report_data-binding gate check with the sha256-wrapping convention; real
       paths compile-verified only — no TDX hardware or Intel collateral in CI)
 - [ ] enrollment-tee — orchestrates §2 steps 1,4–13
-- [ ] voprf-vault — O: holds k, attested eval (Gate b/k server side)
+- [x] voprf-vault — O: holds k, attested eval (Gate b/k server side)
+      (in-process service: challenge nonces burned-on-use, quote + binding checks
+      before any evaluation, DLEQ verified end-to-end by the voprf client crate;
+      transport/RA-TLS and real key sealing arrive with enrollment-tee/deployment)
 - [ ] contracts — Registry (novelty/dedup), GateZVerifier, NullifierRegistry
 - [ ] circuits — Gate Z (stub now)
 - [ ] sdk — enroll() / prove(serviceId) / verifyOnChain()
