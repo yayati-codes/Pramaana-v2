@@ -24,3 +24,10 @@ opt-level = 3
 [profile.dev.package.openjp2]
 debug-assertions = false
 opt-level = 3
+
+# The palc determinism test runs 1000 ML-KEM keygens; keep them fast in dev.
+[profile.dev.package.libcrux-ml-kem]
+opt-level = 3
+
+[profile.dev.package.libcrux-sha3]
+opt-level = 3

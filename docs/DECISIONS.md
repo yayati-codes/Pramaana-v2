@@ -49,3 +49,35 @@ run without ML models or a real Aadhaar. No cmake on dev machines.
 **Consequences.** Demo and CI run with zero ML deps; `--features onnx` is
 compile-gated only until a model file is provisioned; threshold semantics are
 uniform (mapped cosine in [0,1]) across both matchers.
+
+## 2026-06-12 — palc: exact KeyGen-from-seed construction
+
+**Context.** §2 step 10 needs deterministic ML-KEM-1024 keys from the HKDF
+seed; Φ and sk_IdR must be exactly recomputable forever (recovery-by-rescan).
+
+**Decision.** No DRBG shim: libcrux-ml-kem's explicit-randomness API IS the
+FIPS 203 derandomized form. The exact construction:
+
+```
+h_stable = SHA3-512(stable_id)
+seed     = HKDF-SHA3-512(salt = 64 zero bytes, IKM = oprf_output ‖ h_stable,
+                         info = "pramaana-v1", L = 64)
+(ek, dk) = ML-KEM-1024.KeyGen_internal(d = seed[0..32], z = seed[32..64])
+m        = SHA3-512(seed)[0..32]
+(ct, K)  = ML-KEM-1024.Encaps_internal(ek, m)        (K discarded + wiped)
+C_commit = ek ‖ ct          (1568 + 1568 = 3136 bytes)
+Φ        = SHA3-512(C_commit);  sk_IdR = dk (3168 bytes)
+```
+
+Deviation from the spec sketch: "Enc(pk, sha3_512(seed))" cannot take a
+64-byte plaintext — ML-KEM's message space is exactly 32 bytes — so m is
+SHA3-512(seed) truncated to 32 bytes.
+
+**Consequences.** Both `*_internal` functions are fully specified by FIPS 203,
+so any compliant implementation reproduces identical (ek, dk, ct): Φ survives
+KEM-crate swaps. A golden test pins Φ for fixed inputs; if it reddens after a
+dependency bump, the derivation moved and enrolled identities would break —
+investigate, never just re-pin. Zeroization scope: every buffer palc
+allocates is wiped before `derive` returns (verified by a post-wipe observer
+test); sha3/hkdf internal states and libcrux's by-value seed copy are not
+reachable through their APIs — the enclave boundary is the backstop there.

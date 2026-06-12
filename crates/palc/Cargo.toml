@@ -5,3 +5,10 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+hkdf = "0.12"
+# Formally verified ML-KEM; generate_key_pair/encapsulate take explicit
+# randomness = the FIPS 203 *_internal derandomized forms (see DECISIONS.md).
+libcrux-ml-kem = { version = "0.0.9", default-features = false, features = ["mlkem1024"] }
+sha3 = "0.10"
+thiserror = "2"
+zeroize = { version = "1", features = ["derive"] }

@@ -10,7 +10,9 @@ job end-to-end (not when stubbed).
       (JP2 decode real, pure-Rust openjp2; default `sim` matcher is a deterministic
       stand-in, real embeddings behind `onnx` feature — compiles, needs an external
       model file; capture check is an anti-replay nonce stub, not anti-spoofing)
-- [ ] palc — HKDF-SHA3-512 + deterministic Kyber-1024 + commitment + Φ + zeroize
+- [x] palc — HKDF-SHA3-512 + deterministic Kyber-1024 + commitment + Φ + zeroize
+      (FIPS 203 KeyGen_internal/Encaps_internal via libcrux-ml-kem; golden vector
+      pins Φ — a red golden test after a dep bump means enrolled identities break)
 - [ ] voprf — client blind/unblind + DLEQ verify (ristretto255)
 - [ ] attestation — TDX quote gen (configfs-tsm) + verify (dcap-rs) + simulation mode
 - [ ] enrollment-tee — orchestrates §2 steps 1,4–13
