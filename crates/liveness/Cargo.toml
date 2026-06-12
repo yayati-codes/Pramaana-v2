@@ -4,4 +4,20 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = ["sim"]
+# Deterministic non-ML matcher so the demo runs anywhere.
+sim = []
+# Real face-embedding matcher via ONNX Runtime; needs an external model file.
+onnx = ["dep:ort"]
+
 [dependencies]
+# Pure-Rust openjp2 backend: no cmake/C toolchain needed (openjpeg-sys needs cmake).
+jpeg2k = { version = "0.10", default-features = false, features = ["openjp2"] }
+thiserror = "2"
+zeroize = { version = "1", features = ["derive"] }
+# Pre-release: exact pin, rc bumps break API.
+ort = { version = "=2.0.0-rc.12", optional = true }
+
+[dev-dependencies]
+aadhaar-qr = { path = "../aadhaar-qr", features = ["test-gen"] }

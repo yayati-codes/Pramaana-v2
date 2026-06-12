@@ -17,3 +17,10 @@ opt-level = 3
 
 [profile.dev.package.rsa]
 opt-level = 3
+
+# openjp2 is a c2rust translation that keeps C's free(NULL)-is-a-no-op idiom;
+# Rust's debug UB-checks abort on it during codec teardown. Run the package
+# the way it ships in release builds. See DECISIONS.md.
+[profile.dev.package.openjp2]
+debug-assertions = false
+opt-level = 3

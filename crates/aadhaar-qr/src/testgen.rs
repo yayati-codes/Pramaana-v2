@@ -60,14 +60,11 @@ impl Default for TestQrSpec {
             street: "MG Road".into(),
             sub_district: "Ludhiana West".into(),
             vtc: "Ludhiana".into(),
-            // JPEG2000 raw-codestream prefix (FF 4F FF 51 = SOC + SIZ) plus
-            // filler with embedded 0xFF bytes, to prove the photo region is
-            // exempt from delimiter splitting.
-            photo_jp2: {
-                let mut p = vec![0xFF, 0x4F, 0xFF, 0x51];
-                p.extend((0u16..600).flat_map(|i| [(i % 251) as u8, 0xFF]));
-                p
-            },
+            // Real decodable 64x64 JPEG2000 (JP2 box format, like genuine
+            // Aadhaar photos) so downstream crates can exercise JP2 decoding.
+            // Codestreams are naturally full of 0xFF marker bytes, which also
+            // proves the photo region is exempt from delimiter splitting.
+            photo_jp2: include_bytes!("../testdata/synthetic_face.jp2").to_vec(),
         }
     }
 }
