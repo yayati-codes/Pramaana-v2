@@ -5,9 +5,24 @@ edition.workspace = true
 license.workspace = true
 
 [features]
-# SIM mode (deterministic mock quotes) is the default; the real TDX path
-# (configfs-tsm quote gen + dcap-rs verify) lives behind "tdx". See §6.
-default = []
-tdx = []
+# SIM mode (deterministic mock quotes) is the default (§6). The same gate
+# logic (report_data binding check) runs identically on every backend.
+default = ["sim"]
+sim = []
+# Bare TDX host: quote gen via configfs-tsm, parse/QE-sig via tdx-quote,
+# full DCAP collateral verification via dcap-rs. Compiles without hardware.
+tdx = ["dep:configfs-tsm", "dep:dcap-rs", "dep:tdx-quote"]
+# Phala Cloud: quotes + RA-TLS certs from the dstack guest agent over
+# /var/run/dstack.sock (async SDK; sync trait impl uses a tokio runtime).
+dstack = ["dep:dstack-sdk", "dep:tokio"]
 
 [dependencies]
+sha2 = "0.10"
+thiserror = "2"
+
+configfs-tsm = { version = "0.0.2", optional = true }
+dcap-rs = { version = "0.1.0", optional = true }
+tdx-quote = { version = "0.0.5", optional = true }
+
+dstack-sdk = { version = "0.1.3", optional = true }
+tokio = { version = "1", features = ["rt"], optional = true }

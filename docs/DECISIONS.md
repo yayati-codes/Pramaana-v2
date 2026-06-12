@@ -104,3 +104,33 @@ the test suite covers the per-user-key attack (honest proof from a rogue key
 verified against the committed pk must fail). Ristretto encoding structure:
 bit 0 (parity; "non-negative" = even) and bit 255 are always zero — the
 blindness test asserts this structure explicitly and bounds bits 1..=254.
+
+## 2026-06-13 — attestation: three backends + the sha256(report_data) convention
+
+**Context.** §2 gates 0/b/k/Z need quotes on a laptop (sim), a bare TDX host,
+and Phala Cloud (dstack), with one shared binding check.
+
+**Decision.**
+1. Backends: `sim` (default; 120-byte mock quote `PRAMSIM1 ‖ measurement ‖
+   stored_report_data`), `tdx` (configfs-tsm 0.0.2 gen; tdx-quote 0.0.5
+   parse + QE signature; dcap-rs 0.1.0 full DCAP v4 verification when Intel
+   collateral is supplied), `dstack` (dstack-sdk 0.1.3 over
+   /var/run/dstack.sock; also serves RA-TLS certs via get_tls_key; quotes are
+   plain TDX quotes — verify them with the tdx verifier).
+2. report_data convention: `bind_report_data(nonce, value)` =
+   SHA-512("pramaana-report-data-v1" ‖ u64_le(len(nonce)) ‖ nonce ‖ value)
+   (domain-separated §4, length-framed). The quote FIELD stores
+   `sha256(report_data) ‖ 0^32`. Verified from dstack-sdk 0.1.3 source: its
+   `get_quote` passes raw bytes (≤ 64, README says hash longer inputs
+   yourself), and configfs-tsm likewise — so every Attester SUBMITS the
+   sha256-wrapped form, making the convention hold by construction on all
+   three backends and letting one `verify_report_data_binding` serve every
+   gate.
+3. dcap-rs 0.1.0 sharp edge: its parsers panic on malformed input —
+   pre-validate with tdx-quote parsing before the collateral path.
+   dstack-sdk pulls `alloy` (heavy) — acceptable because feature-gated.
+
+**Consequences.** Gate logic is backend-independent; CI exercises sim fully
+while tdx/dstack stay compile-verified (no hardware/collateral in CI);
+replay of an old quote under a fresh nonce fails the binding check by
+construction.

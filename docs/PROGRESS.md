@@ -17,7 +17,10 @@ job end-to-end (not when stubbed).
       (RFC 9497 VOPRF mode, ristretto255-SHA512, via facebook/voprf =0.5.0; server
       side behind `server` feature for voprf-vault; use `-p voprf@0.1.0` in cargo
       package selectors — the bare name is ambiguous with the upstream dep)
-- [ ] attestation — TDX quote gen (configfs-tsm) + verify (dcap-rs) + simulation mode
+- [x] attestation — TDX quote gen (configfs-tsm) + verify (dcap-rs) + simulation mode
+      (three backends: sim default / tdx / dstack for Phala Cloud; shared
+      report_data-binding gate check with the sha256-wrapping convention; real
+      paths compile-verified only — no TDX hardware or Intel collateral in CI)
 - [ ] enrollment-tee — orchestrates §2 steps 1,4–13
 - [ ] voprf-vault — O: holds k, attested eval (Gate b/k server side)
 - [ ] contracts — Registry (novelty/dedup), GateZVerifier, NullifierRegistry
