@@ -15,6 +15,9 @@
 //!    the binding, and only then evaluates under k, returning the
 //!    evaluation + DLEQ proof for client-side Gate k verification.
 
+#[cfg(feature = "http-server")]
+pub mod http;
+
 use std::collections::HashSet;
 use std::fmt;
 use std::sync::Mutex;

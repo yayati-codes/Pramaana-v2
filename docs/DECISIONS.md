@@ -134,3 +134,32 @@ and Phala Cloud (dstack), with one shared binding check.
 while tdx/dstack stay compile-verified (no hardware/collateral in CI);
 replay of an old quote under a fresh nonce fails the binding check by
 construction.
+
+## 2026-06-13 — enrollment-tee: stable_id encoding, Φ-derived dedup tag, vault HTTP
+
+**Context.** T orchestrates §2 steps 1, 4–13; the dedup tag goes on-chain;
+recovery-by-rescan requires the stable-id bytes to be reproducible forever.
+
+**Decision.**
+1. stable_id (§2 step 6) = `"pramaana-stable-id-v1" ‖ (u16_le(len) ‖ field)`
+   for last-4, name, DOB, gender, pincode — length-framed so field
+   boundaries cannot collide. These bytes are identity-critical: changing
+   them re-keys every enrollment (same severity as palc's golden vector).
+2. dedup_tag (§2 step 11) = SHA3-256("pramaana-dedup-v1" ‖ Φ). Derived
+   THROUGH Φ — and therefore through the issuer-unknown k — never from QR
+   fields: an on-chain tag computable from QR data would let UIDAI enumerate
+   its database and de-anonymize (CLAUDE.md non-negotiable).
+3. Gate Z (sim) proof = attestation quote with report_data bound to
+   ("pramaana-gate-z-v1", Φ); the registry verifies quote + binding before
+   recording. Registry is a trait; InMemoryRegistry mirrors Registry.sol
+   until the sdk/contracts wiring; the real ZK circuit is the circuits task.
+4. Vault transport: JSON-over-HTTP (tiny_http server feature in voprf-vault,
+   ureq client in T). The client PINS the vault pubkey at construction —
+   Gate k DLEQ verification always runs against the committed key. RA-TLS
+   termination is deployment work (dstack get_tls_key).
+5. SIMULATION env semantics: unset/"1"/"true" ⇒ sim; any other value ⇒
+   UnsupportedMode until tdx/dstack are wired into T at deployment.
+
+**Consequences.** The full §2 sequence runs end-to-end on a laptop; re-scan
+and re-issue reproduce the same Φ and dedup blocks a second mint; sk_IdR
+exists only inside enroll() and is zeroized on drop, never persisted.

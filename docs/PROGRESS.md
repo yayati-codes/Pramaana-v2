@@ -21,7 +21,11 @@ job end-to-end (not when stubbed).
       (three backends: sim default / tdx / dstack for Phala Cloud; shared
       report_data-binding gate check with the sha256-wrapping convention; real
       paths compile-verified only — no TDX hardware or Intel collateral in CI)
-- [ ] enrollment-tee — orchestrates §2 steps 1,4–13
+- [x] enrollment-tee — orchestrates §2 steps 1,4–13
+      (full pipeline over vault HTTP: Gate 0 handshake, UIDAI verify, face match,
+      stable-id blind, Gate b/k, PALC, Φ-derived dedup, sim Gate Z, PII erase with
+      observer-tested wipe; Registry is in-memory until the sdk/contracts wiring;
+      RA-TLS termination + real attestation modes land at deployment)
 - [x] voprf-vault — O: holds k, attested eval (Gate b/k server side)
       (in-process service: challenge nonces burned-on-use, quote + binding checks
       before any evaluation, DLEQ verified end-to-end by the voprf client crate;

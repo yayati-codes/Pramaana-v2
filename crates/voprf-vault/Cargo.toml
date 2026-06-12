@@ -4,8 +4,17 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+# Minimal JSON-over-HTTP transport for O (used by enrollment-tee).
+http-server = ["dep:tiny_http", "dep:serde", "dep:serde_json", "dep:hex"]
+
 [dependencies]
 attestation = { path = "../attestation" }
 rand_core = { version = "0.6", features = ["getrandom"] }
 thiserror = "2"
 voprf = { path = "../voprf", features = ["server"] }
+
+hex = { version = "0.4", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+tiny_http = { version = "0.12", optional = true }
