@@ -13,7 +13,10 @@ job end-to-end (not when stubbed).
 - [x] palc — HKDF-SHA3-512 + deterministic Kyber-1024 + commitment + Φ + zeroize
       (FIPS 203 KeyGen_internal/Encaps_internal via libcrux-ml-kem; golden vector
       pins Φ — a red golden test after a dep bump means enrolled identities break)
-- [ ] voprf — client blind/unblind + DLEQ verify (ristretto255)
+- [x] voprf — client blind/unblind + DLEQ verify (ristretto255)
+      (RFC 9497 VOPRF mode, ristretto255-SHA512, via facebook/voprf =0.5.0; server
+      side behind `server` feature for voprf-vault; use `-p voprf@0.1.0` in cargo
+      package selectors — the bare name is ambiguous with the upstream dep)
 - [ ] attestation — TDX quote gen (configfs-tsm) + verify (dcap-rs) + simulation mode
 - [ ] enrollment-tee — orchestrates §2 steps 1,4–13
 - [ ] voprf-vault — O: holds k, attested eval (Gate b/k server side)

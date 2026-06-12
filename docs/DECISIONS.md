@@ -81,3 +81,26 @@ investigate, never just re-pin. Zeroization scope: every buffer palc
 allocates is wiped before `derive` returns (verified by a post-wipe observer
 test); sha3/hkdf internal states and libcrux's by-value seed copy are not
 reachable through their APIs — the enclave boundary is the backstop there.
+
+## 2026-06-12 — voprf: wrap facebook/voprf 0.5.0 rather than hand-roll
+
+**Context.** §2 steps 6–9 need client blind/unblind + DLEQ verification; the
+VOPRF is the load-bearing privacy mechanism (THREAT_MODEL b), so a maintained,
+widely-used RFC 9497 implementation beats a bespoke Chaum-Pedersen.
+
+**Decision.** Wrap `voprf =0.5.0` (facebook/voprf; exact pin — 0.6 is a
+pre-release), VOPRF mode, ciphersuite ristretto255-SHA512, curve25519-dalek 4
+underneath. Our package is also named `voprf`, so the dependency is renamed
+`voprf_rfc9497 = { package = "voprf", ... }`; cargo resolves both, but bare
+`-p voprf` selectors are ambiguous — use `-p voprf@0.1.0`. Server-side
+evaluation (`Vault`, including RFC 9497 DeriveKeyPair via `from_seed`) ships
+behind the `server` feature for voprf-vault and tests. Finalize output is 64
+bytes (SHA-512), satisfying palc's MIN_OPRF_OUTPUT_LEN = 32.
+
+**Consequences.** Blindness is information-theoretic (uniform r makes
+r·H(x) uniform regardless of x) — the statistical test is wiring smoke-test
+only. DLEQ verification is what pins evaluations to the committed vault key;
+the test suite covers the per-user-key attack (honest proof from a rogue key
+verified against the committed pk must fail). Ristretto encoding structure:
+bit 0 (parity; "non-negative" = even) and bit 255 are always zero — the
+blindness test asserts this structure explicitly and bounds bits 1..=254.

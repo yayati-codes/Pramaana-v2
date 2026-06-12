@@ -4,4 +4,22 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+# Server-side evaluation (Vault). voprf-vault enables this; tests use it via
+# cfg(test) without the feature.
+server = []
+
 [dependencies]
+# Upstream RFC 9497 implementation (facebook/voprf), renamed because our
+# package shares its name. Exact pin: load-bearing dependency, 0.6 is a
+# pre-release. Ciphersuite: ristretto255-SHA512.
+voprf_rfc9497 = { package = "voprf", version = "=0.5.0", default-features = false, features = [
+    "ristretto255-ciphersuite",
+    "alloc",
+] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+thiserror = "2"
+zeroize = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+rand = "0.8"
