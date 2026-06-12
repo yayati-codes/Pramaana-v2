@@ -3,7 +3,9 @@
 Component checklist (from ARCHITECTURE.md §5). Check an item only when it does its §5
 job end-to-end (not when stubbed).
 
-- [ ] aadhaar-qr — parse Secure QR, verify UIDAI signature, extract fields/photo, stable digest
+- [x] aadhaar-qr — parse Secure QR, verify UIDAI signature, extract fields/photo, stable digest
+      (validated against synthetic QRs via the built-in `test-gen` generator; validation
+      against a real UIDAI certificate + QR still pending)
 - [ ] liveness — decode JP2 photo, accept live face, match
 - [ ] palc — HKDF-SHA3-512 + deterministic Kyber-1024 + commitment + Φ + zeroize
 - [ ] voprf — client blind/unblind + DLEQ verify (ristretto255)
