@@ -1,0 +1,23 @@
+# Rust
+/target/
+
+# Node
+node_modules/
+dist/
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# Circom / snarkjs artifacts
+circuits/build/
+*.r1cs
+*.zkey
+*.wtns
+*.sym
+
+# Misc
+*.log
+.DS_Store
+.env

@@ -1,0 +1,12 @@
+{
+  "name": "@pramaana/circuits",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Gate Z circuit (placeholder). Requires circom 2.x on PATH (pinned: 2.2.3, see scripts/setup-toolchain.sh).",
+  "scripts": {
+    "compile": "circom gatez.circom --r1cs --wasm --sym -o build"
+  },
+  "devDependencies": {
+    "snarkjs": "0.7.5"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "pramaana",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Post-quantum, self-sovereign identity protocol (Aadhaar-variant ASC/U2SSO enrollment)",
+  "packageManager": "pnpm@11.6.0",
+  "engines": {
+    "node": ">=20"
+  }
+}

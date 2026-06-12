@@ -1,0 +1,4 @@
+[toolchain]
+# Pinned current stable; bump deliberately, in lockstep with CI.
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]
