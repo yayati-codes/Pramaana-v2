@@ -1778,6 +1778,7 @@ version = "0.1.0"
 dependencies = [
  "aadhaar-qr",
  "attestation",
+ "base64",
  "hex",
  "liveness",
  "palc",
@@ -1786,6 +1787,7 @@ dependencies = [
  "serde_json",
  "sha3 0.10.9",
  "thiserror 2.0.18",
+ "tiny_http",
  "ureq",
  "voprf 0.1.0",
  "voprf-vault",

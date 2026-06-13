@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    // Bundler resolution (not NodeNext, unlike sdk/app): the Semaphore v4
+    // packages ship .d.ts files with extensionless relative imports that
+    // NodeNext rejects (TS2834). Runtime JS has proper extensions; emitted
+    // output here stays Node-ESM-compatible because our own imports carry
+    // .js extensions. See docs/DECISIONS.md.
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
+    "strict": true,
+    "declaration": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}

@@ -4,6 +4,19 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+# Minimal JSON-over-HTTP transport for T (mirrors voprf-vault's http-server).
+http-server = ["dep:tiny_http", "dep:base64"]
+# SIM-ONLY: /fixture route (synthetic signed QR + matching capture) and the
+# self-contained `tee-server` binary (in-process sim vault). Never enable in
+# a real deployment.
+sim-fixture = ["http-server", "aadhaar-qr/test-gen", "dep:voprf-vault"]
+
+[[bin]]
+name = "tee-server"
+path = "src/bin/tee_server.rs"
+required-features = ["sim-fixture"]
+
 [dependencies]
 aadhaar-qr = { path = "../aadhaar-qr" }
 attestation = { path = "../attestation" }
@@ -19,6 +32,10 @@ sha3 = "0.10"
 thiserror = "2"
 ureq = { version = "3", features = ["json"] }
 zeroize = "1"
+
+base64 = { version = "0.22", optional = true }
+tiny_http = { version = "0.12", optional = true }
+voprf-vault = { path = "../voprf-vault", features = ["http-server"], optional = true }
 
 [dev-dependencies]
 aadhaar-qr = { path = "../aadhaar-qr", features = ["test-gen"] }

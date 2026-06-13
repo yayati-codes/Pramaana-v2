@@ -9,6 +9,10 @@ import {IGateZVerifier} from "./IGateZVerifier.sol";
 ///         dedup tag (Sybil block: one person → one identity). Registration
 ///         is gated on a Gate Z proof that C_commit came from reviewed code
 ///         on approved hardware.
+///
+/// @dev `phi` here is a bytes32 key; the Rust side's Φ is 64 bytes
+///      (SHA3-512 of C_commit). The Φ64→bytes32 mapping is fixed at the SDK
+///      wiring — see docs/DECISIONS.md.
 contract Registry {
     IGateZVerifier public immutable gateZ;
 

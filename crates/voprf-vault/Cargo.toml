@@ -8,6 +8,11 @@ license.workspace = true
 # Minimal JSON-over-HTTP transport for O (used by enrollment-tee).
 http-server = ["dep:tiny_http", "dep:serde", "dep:serde_json", "dep:hex"]
 
+[[bin]]
+name = "voprf-vault"
+path = "src/bin/voprf_vault.rs"
+required-features = ["http-server"]
+
 [dependencies]
 attestation = { path = "../attestation" }
 rand_core = { version = "0.6", features = ["getrandom"] }

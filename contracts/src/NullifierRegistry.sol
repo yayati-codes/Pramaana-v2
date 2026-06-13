@@ -13,8 +13,10 @@ contract NullifierRegistry {
 
     error NullifierAlreadySpent(uint256 serviceId, bytes32 nullifier);
 
-    /// @notice Stub. TODO: require a valid Semaphore membership proof against
-    ///         the Registry group before recording.
+    /// @notice Double-use ledger only: the Semaphore membership proof is
+    ///         verified OFF-chain by the semaphore package's checkAndSpend
+    ///         before spending. Hardening path (on-chain Groth16 via
+    ///         SemaphoreVerifier + group-root custody): docs/DECISIONS.md.
     function spend(uint256 serviceId, bytes32 nullifier) external {
         if (spent[serviceId][nullifier]) revert NullifierAlreadySpent(serviceId, nullifier);
         spent[serviceId][nullifier] = true;

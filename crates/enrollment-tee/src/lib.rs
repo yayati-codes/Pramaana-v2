@@ -6,9 +6,13 @@
 //! PINNED vault key) + unblind → PALC → dedup query → Gate Z → register Φ
 //! commitment → ERASE all PII (QR bytes, live face, intermediates).
 //!
-//! sk_IdR is derived, used for nothing here, and dropped (zeroized): it is
-//! recomputable by re-scan + re-derive and NEVER stored (§2 step 13).
+//! sk_IdR is derived and RETURNED TO C once over the attested channel (§3
+//! requires the user to hold it for Semaphore identity derivation); T never
+//! stores it — it is recomputable by re-scan + re-derive (§2 step 13). See
+//! docs/DECISIONS.md.
 
+#[cfg(feature = "http-server")]
+pub mod http;
 pub mod registry;
 mod vault_client;
 
@@ -21,7 +25,7 @@ use liveness::{decode_jp2, verify_capture, ChallengeNonce, FaceMatcher, LiveCapt
 use rand_core::{OsRng, RngCore};
 use registry::{Registry, RegistryError, GATE_Z_CONTEXT};
 use sha3::{Digest, Sha3_256};
-use zeroize::Zeroize;
+use zeroize::{Zeroize, Zeroizing};
 
 const STABLE_ID_DOMAIN: &[u8] = b"pramaana-stable-id-v1";
 const DEDUP_DOMAIN: &[u8] = b"pramaana-dedup-v1";
@@ -94,6 +98,26 @@ pub struct EnrollmentHandle {
     pub already_enrolled: bool,
 }
 
+/// What `enroll` hands back to C over the attested channel: the public
+/// handle PLUS sk_IdR. The user must hold sk_IdR to derive their Semaphore
+/// identity (§3); T transmits it exactly once and persists nothing — it is
+/// recomputable by re-scan + re-derive, which is also why the
+/// already-enrolled path can return it (PALC re-derives the same key).
+pub struct EnrollmentOutput {
+    pub handle: EnrollmentHandle,
+    /// ML-KEM-1024 decapsulation key (3168 bytes). Wiped on drop.
+    pub sk_idr: Zeroizing<Vec<u8>>,
+}
+
+impl std::fmt::Debug for EnrollmentOutput {
+    /// Redacted: never prints sk_IdR (same hygiene as `Palc`).
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EnrollmentOutput")
+            .field("handle", &self.handle)
+            .finish_non_exhaustive()
+    }
+}
+
 pub struct EnrollmentTee<M: FaceMatcher, R: Registry> {
     attester: SimAttester,
     vault: HttpVaultClient,
@@ -138,7 +162,7 @@ impl<M: FaceMatcher, R: Registry> EnrollmentTee<M, R> {
     }
 
     /// §2 steps 4–13. Consumes the request; all PII is wiped before return.
-    pub fn enroll(&self, request: EnrollmentRequest) -> Result<EnrollmentHandle, EnrollError> {
+    pub fn enroll(&self, request: EnrollmentRequest) -> Result<EnrollmentOutput, EnrollError> {
         self.enroll_inner(request, |_| {})
     }
 
@@ -148,7 +172,7 @@ impl<M: FaceMatcher, R: Registry> EnrollmentTee<M, R> {
         &self,
         request: EnrollmentRequest,
         post_wipe: impl FnOnce(&PiiScratch),
-    ) -> Result<EnrollmentHandle, EnrollError> {
+    ) -> Result<EnrollmentOutput, EnrollError> {
         let EnrollmentRequest {
             qr_numeric,
             live_capture,
@@ -173,7 +197,7 @@ impl<M: FaceMatcher, R: Registry> EnrollmentTee<M, R> {
         scratch: &mut PiiScratch,
         capture: &LiveCapture,
         liveness_nonce: &ChallengeNonce,
-    ) -> Result<EnrollmentHandle, EnrollError> {
+    ) -> Result<EnrollmentOutput, EnrollError> {
         // §2 step 5: UIDAI signature verification (never OCR) + extraction.
         let record = aadhaar_qr::parse_and_verify(&scratch.qr_numeric, &self.uidai_pubkey)?;
 
@@ -225,11 +249,15 @@ impl<M: FaceMatcher, R: Registry> EnrollmentTee<M, R> {
         // issuer-enumerable on-chain (CLAUDE.md non-negotiable).
         let dedup_tag = dedup_tag(&palc.phi);
         if self.registry.is_seen(&dedup_tag)? {
-            // Sybil block: return the existing identity, do NOT mint a second.
-            return Ok(EnrollmentHandle {
-                phi: palc.phi,
-                dedup_tag,
-                already_enrolled: true,
+            // Sybil block: return the existing identity, do NOT mint a
+            // second. sk_IdR is the same re-derivation (recovery-by-rescan).
+            return Ok(EnrollmentOutput {
+                handle: EnrollmentHandle {
+                    phi: palc.phi,
+                    dedup_tag,
+                    already_enrolled: true,
+                },
+                sk_idr: Zeroizing::new(palc.sk_idr().to_vec()),
             });
         }
 
@@ -241,11 +269,16 @@ impl<M: FaceMatcher, R: Registry> EnrollmentTee<M, R> {
         self.registry
             .register(&palc.phi, &dedup_tag, &gatez_proof)?;
 
-        // §2 step 13: palc (sk_IdR) and oprf_output drop here → zeroized.
-        Ok(EnrollmentHandle {
-            phi: palc.phi,
-            dedup_tag,
-            already_enrolled: false,
+        // §2 step 13: palc and oprf_output drop here → zeroized. The single
+        // surviving copy of sk_IdR rides back to C (Zeroizing) — T keeps
+        // nothing.
+        Ok(EnrollmentOutput {
+            handle: EnrollmentHandle {
+                phi: palc.phi,
+                dedup_tag,
+                already_enrolled: false,
+            },
+            sk_idr: Zeroizing::new(palc.sk_idr().to_vec()),
         })
     }
 }

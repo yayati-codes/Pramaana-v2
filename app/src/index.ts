@@ -1,22 +1,40 @@
 /**
- * Sybil-resistant airdrop demo (ARCHITECTURE.md §5).
- * One human → one claim, no matter how many wallets they control.
+ * Sybil-resistant airdrop demo (ARCHITECTURE.md §3/§5): one human → one
+ * claim per service, with cross-service pseudonyms that cannot be correlated.
+ *
+ * Run: `pnpm --filter @pramaana/app demo` (orchestrates anvil + tee-server),
+ * then open the printed URL. Point at existing backends with TEE_URL/RPC_URL.
  */
-import { enroll, prove, verifyOnChain } from "@pramaana/sdk";
 
-const AIRDROP_SERVICE_ID = "pramaana-airdrop-demo";
+import { createDemoServer } from "./server.js";
+import { orchestrate, type Backends } from "./orchestrate.js";
 
 async function main(): Promise<void> {
-  // One-time: prove real-world uniqueness inside the enrollment TEE (§2).
-  const enrollment = await enroll();
-  console.log("enrolled, Φ =", enrollment.phi);
+  const port = Number(process.env.PORT ?? 8080);
 
-  // Per-service: unlinkable pseudonym + Semaphore membership proof (§3).
-  const claim = await prove(AIRDROP_SERVICE_ID);
+  let backends: Backends | null = null;
+  let teeUrl = process.env.TEE_URL;
+  let rpcUrl = process.env.RPC_URL;
 
-  // The airdrop accepts each nullifier exactly once.
-  const accepted = await verifyOnChain(claim);
-  console.log("claim accepted:", accepted);
+  if (!teeUrl || !rpcUrl) {
+    console.log("starting sim backends (anvil + tee-server)…");
+    backends = await orchestrate();
+    teeUrl = backends.teeUrl;
+    rpcUrl = backends.rpcUrl;
+  }
+
+  const server = await createDemoServer({ teeUrl, rpcUrl });
+  server.listen(port, () => {
+    console.log(`\n  Pramaana demo → http://127.0.0.1:${port}\n`);
+  });
+
+  const shutdown = () => {
+    server.close();
+    backends?.stop();
+    process.exit(0);
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
 
 main().catch((err) => {

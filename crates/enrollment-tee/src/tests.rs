@@ -80,10 +80,12 @@ fn gate0_handshake_verifies() {
 #[test]
 fn enroll_happy_path() {
     let tee = make_tee();
-    let handle = tee.enroll(request_for(&TestQrSpec::default())).unwrap();
+    let out = tee.enroll(request_for(&TestQrSpec::default())).unwrap();
 
-    assert!(!handle.already_enrolled);
-    assert!(handle.phi.iter().any(|&b| b != 0));
+    assert!(!out.handle.already_enrolled);
+    assert!(out.handle.phi.iter().any(|&b| b != 0));
+    // §3: C receives sk_IdR (ML-KEM-1024 dk) over the attested channel.
+    assert_eq!(out.sk_idr.len(), 3168);
     assert_eq!(tee.registry().identity_count(), 1);
 }
 
@@ -93,21 +95,22 @@ fn rescan_reproduces_phi_and_dedup_blocks() {
     let spec = TestQrSpec::default();
 
     let first = tee.enroll(request_for(&spec)).unwrap();
-    assert!(!first.already_enrolled);
+    assert!(!first.handle.already_enrolled);
 
     // DoD: same QR re-enrolled → SAME Φ (recovery-by-rescan), dedup blocks
-    // a second mint.
+    // a second mint — and the SAME sk_IdR is re-derived for C.
     let again = tee.enroll(request_for(&spec)).unwrap();
-    assert_eq!(again.phi, first.phi);
-    assert!(again.already_enrolled);
+    assert_eq!(again.handle.phi, first.handle.phi);
+    assert!(again.handle.already_enrolled);
+    assert_eq!(*again.sk_idr, *first.sk_idr);
     assert_eq!(tee.registry().identity_count(), 1);
 
     // Re-issued QR (same person, fresh issuance timestamp) → same identity.
     let mut reissued = spec.clone();
     reissued.timestamp = "20270301080000777".into();
     let third = tee.enroll(request_for(&reissued)).unwrap();
-    assert_eq!(third.phi, first.phi);
-    assert!(third.already_enrolled);
+    assert_eq!(third.handle.phi, first.handle.phi);
+    assert!(third.handle.already_enrolled);
     assert_eq!(tee.registry().identity_count(), 1);
 
     // A different person enrolls fine.
@@ -115,8 +118,8 @@ fn rescan_reproduces_phi_and_dedup_blocks() {
     other.last4 = "7777".into();
     other.name = "Birbal Example".into();
     let fourth = tee.enroll(request_for(&other)).unwrap();
-    assert_ne!(fourth.phi, first.phi);
-    assert!(!fourth.already_enrolled);
+    assert_ne!(fourth.handle.phi, first.handle.phi);
+    assert!(!fourth.handle.already_enrolled);
     assert_eq!(tee.registry().identity_count(), 2);
 }
 
@@ -124,7 +127,7 @@ fn rescan_reproduces_phi_and_dedup_blocks() {
 fn pii_erased_after_enroll() {
     let tee = make_tee();
     let mut observed = false;
-    let handle = tee
+    let out = tee
         .enroll_inner(request_for(&TestQrSpec::default()), |scratch| {
             assert!(
                 scratch.is_wiped(),
@@ -137,7 +140,9 @@ fn pii_erased_after_enroll() {
     // The handle itself carries public data only: Φ and the dedup tag are
     // both derived through the issuer-unknown k (and are what goes on-chain
     // anyway); already_enrolled is a bool. No demographic field exists on
-    // the type — compile-level guarantee.
+    // the type — compile-level guarantee. sk_IdR rides separately on the
+    // output (Zeroizing) and is NOT part of the handle.
+    let handle = out.handle;
     let _: ([u8; 64], [u8; 32], bool) = (handle.phi, handle.dedup_tag, handle.already_enrolled);
 }
 

@@ -193,3 +193,184 @@ yet; tests must not reintroduce a git submodule into the build.
 
 **Consequences.** Registry logic is final and tested; production swaps in a
 real `IGateZVerifier` only; the EVM build needs no `git submodule update`.
+
+## 2026-06-13 — contracts redo: design confirmed; Φ-width seam recorded
+
+**Context.** The contracts landed ahead of the per-prompt review loop, so they
+were redone from scratch, test-first, under review. The redo doubles as an
+audit of the unreviewed run.
+
+**Decision.**
+1. The re-derivation confirmed the prior design unchanged — entry above
+   stands in full (IGateZVerifier seam, cheapest-first check order, sim proof
+   format, forge-std-free tests). No semantic differences.
+2. Test additions beyond the prior 12: `Registered` / `NullifierSpent` event
+   assertions via a minimal `expectEmit()` cheatcode, and two fuzz properties
+   (any (Φ, dedup) registers with its valid sim proof; anything that is not
+   THE expected proof reverts). 14 tests total.
+3. Audit finding, recorded as an open seam: the Rust side's Φ is 64 bytes
+   (SHA3-512 of C_commit, `[u8; 64]` in enrollment-tee/palc) while the
+   on-chain key is `bytes32`. The Φ64→bytes32 mapping is currently UNDEFINED.
+   It must be fixed at the sdk/contracts wiring, and once chosen it is
+   identity-critical (same severity as palc's golden vector): changing it
+   re-keys every on-chain registration. The obvious candidate is
+   keccak256(Φ64); decide and pin it there, alongside the matching dedup_tag
+   convention (already 32 bytes from SHA3-256, so it maps 1:1).
+
+**Consequences.** Registry/GateZVerifier/NullifierRegistry are now reviewed
+code; the sdk prompt must define the Φ64→bytes32 mapping before any on-chain
+registration happens, or recovery-by-rescan and dedup would diverge between
+the Rust and EVM layers.
+
+## 2026-06-13 — semaphore: §3 nullifiers via Semaphore v4, off-chain verify + on-chain ledger
+
+**Context.** §3 needs a different unlinkable pseudonym per service, derived
+from (Φ, sk_IdR), with double-use detectable on-chain. The proof system must
+be real (the VOPRF/PALC story collapses if the last hop is a stub).
+
+**Decision.**
+1. New TS workspace package `@pramaana/semaphore` wrapping
+   `@semaphore-protocol/core` =4.14.2 (Groth16/BN254, Poseidon, EdDSA
+   identities) — the SDK's prove(serviceId) will be a thin wrapper over it.
+2. Identity secret (IDENTITY-CRITICAL, same severity as palc's golden
+   vector): `SHA3-256("pramaana-semaphore-identity-v1" ‖ u16_le(64) ‖ Φ ‖
+   u16_le(3168) ‖ sk_IdR)` used as the Semaphore private key. sk_IdR is
+   REQUIRED, not hardening: Φ is registered on-chain (public), so a Φ-only
+   secret would let anyone mint a user's nullifiers. Input lengths are
+   pinned to the palc output sizes (64 / 3168 bytes).
+3. Scope mapping (IDENTITY-CRITICAL): Semaphore scope = on-chain
+   `uint256 serviceId` = `BigInt(keccak256(utf8(serviceId))) >> 8` (BN254-
+   safe; Semaphore.sol's own truncation convention). `MERKLE_DEPTH` pinned
+   at 10 (groups to 1024 members; Groth16 artifacts are per-depth).
+4. Verification locus (user-approved): the Groth16 proof is verified
+   OFF-chain in `NullifierRegistryClient.checkAndSpend`; the chain remains a
+   double-use ledger (`NullifierAlreadySpent`). Hardening path: drop
+   `SemaphoreVerifier` (from `@semaphore-protocol/contracts`) behind
+   `NullifierRegistry.spend` with group-root custody — belongs to the
+   Registry/SDK wiring, where the root's source of truth is decided.
+5. OPEN SEAM for the sdk prompt: C never receives sk_IdR today —
+   enrollment-tee zeroizes it and returns only {Φ, dedup_tag}
+   (EnrollmentHandle). T must release sk_IdR (or the derived Semaphore
+   secret) to C over the attested Gate 0 channel at enroll time; §2 step 13
+   stays intact (T persists nothing). Tests use synthetic fixtures until
+   then.
+6. Toolchain notes: Semaphore's .d.ts files use extensionless relative
+   imports that `moduleResolution: NodeNext` rejects (TS2834) → this package
+   compiles with `Bundler` resolution + skipLibCheck (sdk will need the same
+   once it consumes the package). Proof artifacts (wasm/zkey per depth) are
+   downloaded on first generateProof and cached — first test run needs
+   network; the offline `make demo` (e2e prompt) must pre-warm or vendor
+   them. ethers v6: the default 250ms result cache replayed estimateGas
+   across the back-to-back double-spend calls (tests disable it,
+   cacheTimeout -1), and custom errors thrown at estimateGas are not
+   ABI-decoded — checkAndSpend decodes revert data via interface.parseError
+   and rethrows by name.
+
+**Consequences.** Same (user, service) → the same nullifier, so double-use
+reverts on-chain; nullifiers across services share no user-derivable value
+(root/depth/message are group-wide — asserted in tests against a second
+user's proof). Changing the identity-secret formula or the scope mapping
+orphans every Semaphore identity / recorded nullifier respectively.
+
+## 2026-06-13 — sdk: TEE HTTP transport, sk_IdR release to C, client-side Gate 0
+
+**Context.** The SDK must hide §2/§3 behind enroll/prove/verifyOnChain. Two
+recorded seams blocked it: T had no client-facing transport, and C never
+received sk_IdR (so no Semaphore identity could be derived client-side).
+
+**Decision.**
+1. **sk_IdR release.** `EnrollmentTee::enroll` now returns
+   `EnrollmentOutput { handle, sk_idr: Zeroizing<Vec<u8>> }`. The handle
+   stays public-data-only; sk_IdR crosses the attested channel ONCE and T
+   persists nothing — §2 step 13 ("never stored") is about T, while §3
+   explicitly requires the USER to hold (Φ, sk_IdR). The already-enrolled
+   path returns the same re-derived sk (that IS recovery-by-rescan; tested).
+   Debug for the output is redacted (Palc hygiene).
+2. **T transport** (`http-server` feature, vault pattern): POST /handshake
+   (Gate 0 quote + ephemeral pubkey + a liveness challenge nonce, BURNED on
+   use like vault nonces), POST /enroll (QR + base64-RGB capture echoing the
+   challenge → handle + sk_idr hex). `sim-fixture` feature adds GET /fixture
+   (synthetic signed QR + matching frames; JP2 decoded server-side) and the
+   self-contained `tee-server` binary (in-process sim vault unless
+   VAULT_URL; demo UIDAI keypair; SIM-ONLY — required-features gated).
+   RA-TLS termination of this channel is deployment work (dstack
+   get_tls_key); in sim, the Gate 0 quote binding is what C checks.
+3. **Client-side Gate 0 in TS.** sdk/src/attestation.ts mirrors the Rust
+   sim verifier (PRAMSIM1 layout, measurement allowlist, sha256-wrapped
+   report_data binding). enroll() runs handshake → verify → only then sends
+   PII (§2 step 1: fail ⇒ send NOTHING). Cross-language drift is pinned by
+   a Rust-generated vector in sdk/test/attestation.test.ts — if it reddens,
+   the languages disagree on binding bytes; fix the drift, never re-pin
+   casually.
+4. **SDK shape.** `class Pramaana` (stateful: holds (Φ, sk_IdR) in memory
+   only, previous session secret overwritten): enroll / prove /
+   verifyOnChain (= Groth16 valid AND unspent, read-only) / claim (=
+   checkAndSpend, the airdrop path) / fixture (sim demo). Group membership
+   is demo-scale: config.groupMembers + own commitment; registry-backed
+   group custody arrives with the e2e wiring, as does Registry.sol
+   registration (Φ64→bytes32 mapping still open there). sdk and app
+   tsconfigs switched to Bundler resolution + skipLibCheck (semaphore d.ts
+   chain, as predicted in the semaphore entry).
+
+**Consequences.** The full §2 happy path runs TS→Rust→TS on a laptop (e2e
+suite spawns tee-server + anvil); the demo app reduces to SDK calls. The
+sk_IdR hex transits an UNENCRYPTED localhost channel in sim — acceptable
+only because sim mode is explicitly the laptop path; the dstack deployment
+must terminate RA-TLS before any real credential touches enroll.
+
+## 2026-06-13 — app: server-side-SDK demo, two-service unlinkability framing
+
+**Context.** The airdrop demo must show "one human · one claim · unlinkable"
+in a live click-through (DoD), built on the SDK.
+
+**Decision.**
+1. Architecture: a thin Node `http` server holds ONE server-side `Pramaana`
+   session and exposes a JSON API; the browser is pure presentation (vanilla
+   fetch, no framework/build). Server-side SDK — not in-browser — because it
+   keeps the anvil deployer key off the client, avoids CORS to the Rust
+   tee-server, and skips an in-browser Groth16 artifact download. The
+   "drop-in SDK" pitch still holds (the server is ~40 lines of SDK calls).
+   The server deploys its own NullifierRegistry on boot (forge artifact, anvil
+   key0 — SIM-ONLY) and reuses the orchestrate helper to spawn anvil +
+   tee-server, so the demo is one command now; `make demo` is the next prompt.
+2. The Sybil block shown is per-service: same human, same airdrop, twice →
+   the SAME deterministic nullifier → on-chain `NullifierAlreadySpent`
+   (claim() wrapped so the revert renders as "blocked"). The cross-airdrop
+   story uses two independent service ids (airdrop-alpha/-beta): different
+   nullifiers and scopes, no shared user-derivable value (the UI notes the
+   only shared value is the group-wide Merkle root, which every member
+   shares).
+
+**Consequences.** `pnpm --filter @pramaana/app demo` gives a real
+click-through; the app e2e drives the same REST calls headlessly for the DoD.
+On-chain Φ registration via Registry.sol (and the Φ64→bytes32 mapping) is
+still not exercised by the demo — it lives in the e2e/`make demo` prompt.
+
+## 2026-06-13 — end-to-end: standalone vault binary, `make demo` topology
+
+**Context.** `make demo` must bring the whole sim stack up from a clean
+checkout and assert the headline properties (DoD).
+
+**Decision.**
+1. Added a standalone `voprf-vault` binary (http-server feature) so O runs as
+   its OWN process holding k, and `orchestrate({ separateVault: true })`
+   spawns it and points the tee at it via VAULT_URL — the key-custody split
+   made process-level (it was in-process inside tee-server before; that path
+   stays the default for the lighter e2e *tests*). Real path: the seed comes
+   from the dstack KMS `get_key` inside the CVM; sim uses VAULT_SEED / a fixed
+   demo seed. k is never logged (Debug prints pubkey only).
+2. Two e2e surfaces, deliberately: the vitest suites
+   (sdk/test/e2e.test.ts, app/test/app.e2e.test.ts) are granular CI tests on
+   the in-process-vault path; `app/src/e2e-demo.ts` (run by `make demo`) is a
+   narrated, self-asserting script on the separate-vault topology that exits
+   non-zero on failure. It asserts Sybil resistance at BOTH layers
+   (enrollment dedup → same Φ + already_enrolled; per-service double-spend →
+   NullifierAlreadySpent) and cross-service unlinkability.
+3. `make demo` builds the TS dists (semaphore→sdk→app) then runs the script,
+   which cargo-builds the tee + vault binaries and forge-builds contracts
+   itself — so one command works from a clean (toolchain-installed) checkout.
+
+**Consequences.** All §5 crates/packages are now exercised together
+end-to-end in sim. The demo deploys only NullifierRegistry (what the SDK
+drives); Registry.sol on-chain Φ registration remains the next integration
+(Φ64→bytes32 mapping still open), called out honestly in PITCH.md.

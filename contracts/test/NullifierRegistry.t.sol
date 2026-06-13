@@ -13,12 +13,18 @@ contract NullifierRegistryTest {
     uint256 constant SERVICE_B = 2;
     bytes32 constant NULLIFIER = keccak256("nullifier");
 
+    // Mirror of NullifierRegistry.NullifierSpent for expectEmit.
+    event NullifierSpent(uint256 indexed serviceId, bytes32 indexed nullifier);
+
     function setUp() public {
         nullifiers = new NullifierRegistry();
     }
 
     function test_first_spend_succeeds() public {
+        vm.expectEmit();
+        emit NullifierSpent(SERVICE_A, NULLIFIER);
         nullifiers.spend(SERVICE_A, NULLIFIER);
+
         require(nullifiers.spent(SERVICE_A, NULLIFIER), "nullifier must be spent");
     }
 

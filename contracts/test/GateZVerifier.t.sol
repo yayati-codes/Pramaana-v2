@@ -29,7 +29,7 @@ contract GateZVerifierTest {
     }
 
     function test_rejects_proof_for_other_phi() public view {
-        // A proof valid for a different phi must not verify here.
+        // A proof valid for a different Φ must not verify here.
         bytes memory otherProof = abi.encodePacked(gateZ.expectedProof(keccak256("other")));
         require(!gateZ.verify(PHI, otherProof), "cross-phi proof must fail");
     }

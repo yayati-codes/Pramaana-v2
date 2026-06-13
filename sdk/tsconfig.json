@@ -1,8 +1,13 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    // Bundler resolution + skipLibCheck: required to consume
+    // @pramaana/semaphore (Semaphore v4 ships .d.ts with extensionless
+    // relative imports that NodeNext rejects — docs/DECISIONS.md). Emitted
+    // output stays Node-ESM-compatible (our imports carry .js extensions).
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
     "strict": true,
     "declaration": true,
     "sourceMap": true,

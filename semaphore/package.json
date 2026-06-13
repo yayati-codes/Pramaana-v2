@@ -1,8 +1,8 @@
 {
-  "name": "@pramaana/sdk",
+  "name": "@pramaana/semaphore",
   "private": true,
   "version": "0.1.0",
-  "description": "Pramaana drop-in SDK: enroll() / prove(serviceId) / verifyOnChain()",
+  "description": "Per-service unlinkable nullifiers (ARCHITECTURE.md §3): Semaphore identity from (Φ, sk_IdR), membership proofs, NullifierRegistry client",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@noble/hashes": "^1.8.0",
-    "@pramaana/semaphore": "workspace:*",
+    "@semaphore-protocol/core": "4.14.2",
     "ethers": "^6.13.4"
   },
   "devDependencies": {

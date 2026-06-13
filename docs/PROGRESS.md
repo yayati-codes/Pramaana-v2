@@ -32,8 +32,36 @@ job end-to-end (not when stubbed).
       transport/RA-TLS and real key sealing arrive with enrollment-tee/deployment)
 - [x] contracts — Registry (novelty/dedup), GateZVerifier, NullifierRegistry
       (Φ-novelty + dedup Sybil block + IGateZVerifier seam for a future DCAP-in-ZK
-      verifier; sim Gate Z proof = keccak256("pramaana-sim-attestation", Φ); 12 forge
-      tests, forge-std-free so the build stays submodule-free)
+      verifier; sim Gate Z proof = keccak256("pramaana-sim-attestation", Φ); redone
+      test-first under review — design re-derived unchanged; 14 forge tests incl.
+      event assertions + 2 fuzz properties, forge-std-free so the build stays
+      submodule-free; open seam: Φ64→bytes32 mapping fixed at SDK wiring)
+- [x] semaphore — per-service unlinkable nullifiers (§3; TS binding @pramaana/semaphore)
+      (real Semaphore v4 Groth16 proofs: identity from SHA3-256(domain ‖ Φ ‖ sk_IdR),
+      scope = keccak(serviceId)>>8, depth pinned at 10; proof verified off-chain,
+      NullifierRegistry is the on-chain double-use ledger — 13 vitest tests incl.
+      anvil double-spend; first proof run downloads snark artifacts (network);
+      sk_IdR release from T to C is the open seam for the sdk prompt)
+- [x] end-to-end — `make demo` + docs/PITCH.md
+      (headless asserting demo: anvil + standalone voprf-vault (O holds k) +
+      enrollment-tee (sim) → SDK enroll/prove/claim → asserts Sybil block at
+      BOTH layers (enrollment dedup + per-service double-spend) and
+      cross-service unlinkability; runs green from a clean checkout. PITCH.md
+      has the 3-min flow, real-vs-sim table, and the two headline claims with
+      one-line proofs. Interactive version: `pnpm --filter @pramaana/app demo`)
 - [ ] circuits — Gate Z (stub now)
-- [ ] sdk — enroll() / prove(serviceId) / verifyOnChain()
-- [ ] app — Sybil-resistant airdrop demo
+- [x] sdk — enroll() / prove(serviceId) / verifyOnChain()
+      (class Pramaana over the real Rust tee-server HTTP transport: Gate 0
+      verified CLIENT-side before any PII is sent (TS sim-quote verifier,
+      cross-language vector pinned), sk_IdR released to C once over the
+      attested channel; prove/claim via @pramaana/semaphore; verifyOnChain =
+      Groth16 + unspent; e2e vitest spawns tee-server + anvil — 11 tests;
+      Registry.sol on-chain Φ registration + Φ64→bytes32 mapping remain for
+      the e2e prompt)
+- [x] app — Sybil-resistant airdrop demo
+      (browser demo over @pramaana/sdk: Node server holds one SDK session +
+      serves a vanilla-JS UI; live click-through proves enroll → claim Alpha →
+      second Alpha claim BLOCKED (same nullifier, Sybil) → Beta claim with an
+      unlinkable nullifier; deploys its own NullifierRegistry to anvil, drives
+      the sim tee-server; `pnpm --filter @pramaana/app demo` orchestrates
+      anvil+tee one-command; 3 app e2e tests; anvil key0 deployer is sim-only)

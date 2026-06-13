@@ -1,4 +1,7 @@
 packages:
   - sdk
+  - semaphore
   - app
   - circuits
+allowBuilds:
+  esbuild: true
